@@ -1,0 +1,232 @@
+Resources:
+  userpool0AC4AA96:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      AutoVerifiedAttributes:
+        - email
+      EmailVerificationMessage: The verification code to your new account is {####}
+      EmailVerificationSubject: Verify your new account
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 6
+          RequireLowercase: false
+          RequireNumbers: false
+          RequireSymbols: false
+          RequireUppercase: false
+      SmsVerificationMessage: The verification code to your new account is {####}
+      UsernameAttributes:
+        - email
+      UserPoolName: my-user-pool
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+        EmailMessage: The verification code to your new account is {####}
+        EmailSubject: Verify your new account
+        SmsMessage: The verification code to your new account is {####}
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: cdk-stack/userpool/Resource
+  userpoolclientDA356A8E:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId:
+        Ref: userpool0AC4AA96
+      AllowedOAuthFlows:
+        - implicit
+        - code
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - profile
+        - phone
+        - email
+        - openid
+        - aws.cognito.signin.user.admin
+      CallbackURLs:
+        - https://example.com
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+        - ALLOW_CUSTOM_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      SupportedIdentityProviders:
+        - COGNITO
+    Metadata:
+      aws:cdk:path: cdk-stack/userpool-client/Resource
+  myfunctionServiceRole41691664:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: cdk-stack/my-function/ServiceRole/Resource
+  myfunctionDF753486:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Ref: AssetParameters1bbdf45783bd2d2b112002d1251ed9e4585017cbd2ffc1c27cdf9380c3ea110cS3Bucket36A396DF
+        S3Key:
+          Fn::Join:
+            - ""
+            - - Fn::Select:
+                  - 0
+                  - Fn::Split:
+                      - "||"
+                      - Ref: AssetParameters1bbdf45783bd2d2b112002d1251ed9e4585017cbd2ffc1c27cdf9380c3ea110cS3VersionKeyD8136066
+              - Fn::Select:
+                  - 1
+                  - Fn::Split:
+                      - "||"
+                      - Ref: AssetParameters1bbdf45783bd2d2b112002d1251ed9e4585017cbd2ffc1c27cdf9380c3ea110cS3VersionKeyD8136066
+      Role:
+        Fn::GetAtt:
+          - myfunctionServiceRole41691664
+          - Arn
+      Environment:
+        Variables:
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: "1"
+      Handler: index.main
+      Runtime: nodejs14.x
+    DependsOn:
+      - myfunctionServiceRole41691664
+    Metadata:
+      aws:cdk:path: cdk-stack/my-function/Resource
+      aws:asset:path: C:\Users\Lenovo\vrishkar\aws-cdk-api-authorizer\cdk.out\asset.1bbdf45783bd2d2b112002d1251ed9e4585017cbd2ffc1c27cdf9380c3ea110c
+      aws:asset:is-bundled: true
+      aws:asset:property: Code
+  apiC8550315:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: my-api
+      ProtocolType: HTTP
+    Metadata:
+      aws:cdk:path: cdk-stack/api/Resource
+  apiDefaultStage04B80AC9:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId:
+        Ref: apiC8550315
+      StageName: $default
+      AutoDeploy: true
+    Metadata:
+      aws:cdk:path: cdk-stack/api/DefaultStage/Resource
+  apiANYprotectedprotectedfnintegrationPermissionBA487ADE:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - myfunctionDF753486
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":execute-api:us-east-2:278937816757:"
+            - Ref: apiC8550315
+            - /*/*/protected
+    Metadata:
+      aws:cdk:path: cdk-stack/api/ANY--protected/protected-fn-integration-Permission
+  apiANYprotectedprotectedfnintegrationF80CF7A3:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Ref: apiC8550315
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::GetAtt:
+          - myfunctionDF753486
+          - Arn
+      PayloadFormatVersion: "2.0"
+    Metadata:
+      aws:cdk:path: cdk-stack/api/ANY--protected/protected-fn-integration/Resource
+  apiANYprotected71D4E623:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: apiC8550315
+      RouteKey: ANY /protected
+      AuthorizationType: JWT
+      AuthorizerId:
+        Ref: apiuserpoolauthorizer2935C3D3
+      Target:
+        Fn::Join:
+          - ""
+          - - integrations/
+            - Ref: apiANYprotectedprotectedfnintegrationF80CF7A3
+    Metadata:
+      aws:cdk:path: cdk-stack/api/ANY--protected/Resource
+  apiuserpoolauthorizer2935C3D3:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId:
+        Ref: apiC8550315
+      AuthorizerType: JWT
+      Name: user-pool-authorizer
+      IdentitySource:
+        - $request.header.Authorization
+      JwtConfiguration:
+        Audience:
+          - Ref: userpoolclientDA356A8E
+        Issuer:
+          Fn::Join:
+            - ""
+            - - https://cognito-idp.us-east-2.amazonaws.com/
+              - Ref: userpool0AC4AA96
+    Metadata:
+      aws:cdk:path: cdk-stack/api/user-pool-authorizer/Resource
+  CDKMetadata:
+    Type: AWS::CDK::Metadata
+    Properties:
+      Analytics: v2:deflate64:H4sIAAAAAAAA/11Ry07DMBD8lt6dLaGCM2klBBeogvgA4yyp87Aj77oVWP537IS2iNPMrEezD5dQbu7gZvUgT1Sopl8HZR1CeGOpelERISfaatOKnTXEzisWu0+zl06OyOiyePU8+blcI1nvFEaR81JWazRbCO+Ebm/tkD0Xfia7QaPhv09LJYpBjh+NLIxtsCN4meHRG8XaGqHlCKG2A86NE0ZBm0LmkQnmyZOGrVc98lYS/qZBSPZLSF4F3aiJkkpTT7qVjCf5dbyF8MQ8VZPOpgxZ5mPMDReSS7X1vLBnw9g6eQ7+J6++yvPBOv29XO+qYowi7wodrY/lffoaKFcdaV04b1iPCPWCPywh3862AQAA
+    Metadata:
+      aws:cdk:path: cdk-stack/CDKMetadata/Default
+Parameters:
+  AssetParameters1bbdf45783bd2d2b112002d1251ed9e4585017cbd2ffc1c27cdf9380c3ea110cS3Bucket36A396DF:
+    Type: String
+    Description: S3 bucket for asset "1bbdf45783bd2d2b112002d1251ed9e4585017cbd2ffc1c27cdf9380c3ea110c"
+  AssetParameters1bbdf45783bd2d2b112002d1251ed9e4585017cbd2ffc1c27cdf9380c3ea110cS3VersionKeyD8136066:
+    Type: String
+    Description: S3 key for asset version "1bbdf45783bd2d2b112002d1251ed9e4585017cbd2ffc1c27cdf9380c3ea110c"
+  AssetParameters1bbdf45783bd2d2b112002d1251ed9e4585017cbd2ffc1c27cdf9380c3ea110cArtifactHash77F701D0:
+    Type: String
+    Description: Artifact hash for asset "1bbdf45783bd2d2b112002d1251ed9e4585017cbd2ffc1c27cdf9380c3ea110c"
+Outputs:
+  region:
+    Value: us-east-2
+  userPoolId:
+    Value:
+      Ref: userpool0AC4AA96
+  userPoolClientId:
+    Value:
+      Ref: userpoolclientDA356A8E
+  apiUrl:
+    Value:
+      Fn::Join:
+        - ""
+        - - https://
+          - Ref: apiC8550315
+          - .execute-api.us-east-2.
+          - Ref: AWS::URLSuffix
+          - /
+
